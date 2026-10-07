@@ -1,26 +1,135 @@
-<!doctype html>
-<html lang="pt-BR">
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Plano de Estudos</title>
-<link rel="stylesheet" href="style.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="description" content="Plataforma Profissional de Estudos para Engenharia de Software">
+  <meta name="theme-color" content="#0d0d12">
+  <title>EstudosOS | Workspace Acadêmico</title>
+  
+  <link rel="stylesheet" href="style.css">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
 </head>
-<body>
-<header>
-  <h1>Plano de Estudos</h1>
-  <div id="counts"></div>
-</header>
-<nav id="nav">
-  <button data-tab="dia">Dia</button>
-  <button data-tab="cronograma">Cronograma</button>
-  <button data-tab="exercicios">Exercícios</button>
-  <button data-tab="erros">Erros</button>
-  <button data-tab="formulas">Fórmulas</button>
-  <button data-tab="progresso">Progresso</button>
-  <button data-tab="info">Avisos</button>
-</nav>
-<main id="view"></main>
-<script src="app.js"></script>
+<body class="spa-loading">
+  <div id="loader-overlay" class="loader-overlay">
+    <div class="spinner"></div>
+    <div class="loader-text">Inicializando Ambiente...</div>
+  </div>
+
+  <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+  <dialog id="global-modal" class="modal">
+    <div class="modal-content">
+      <header class="modal-header">
+        <h2 id="modal-title">Ação</h2>
+        <button class="icon-btn modal-close" aria-label="Fechar modal"><i class="fas fa-times"></i></button>
+      </header>
+      <div id="modal-body" class="modal-body"></div>
+      <footer id="modal-footer" class="modal-footer"></footer>
+    </div>
+  </dialog>
+  
+  <div class="app-layout">
+    <aside id="sidebar" class="sidebar" aria-label="Menu Lateral">
+      <div class="sidebar-header">
+        <div class="brand">
+          <div class="brand-icon"><i class="fas fa-layer-group"></i></div>
+          <span class="brand-text">EstudosOS</span>
+        </div>
+        <button id="toggle-sidebar" class="icon-btn sidebar-toggle" aria-label="Recolher menu">
+          <i class="fas fa-chevron-left"></i>
+        </button>
+      </div>
+      
+      <div class="sidebar-scroll-area">
+        <nav id="main-nav" class="sidebar-nav">
+          <div class="nav-section-title">Principal</div>
+          <a href="#/dashboard" class="nav-item" data-route="/dashboard">
+            <i class="fas fa-chart-pie nav-icon"></i>
+            <span class="nav-text">Dashboard Analytics</span>
+          </a>
+          <a href="#/calendario" class="nav-item" data-route="/calendario">
+            <i class="fas fa-calendar-alt nav-icon"></i>
+            <span class="nav-text">Cronograma Tático</span>
+          </a>
+          
+          <div class="nav-section-title">Acadêmico</div>
+          <a href="#/materias" class="nav-item" data-route="/materias">
+            <i class="fas fa-book nav-icon"></i>
+            <span class="nav-text">Módulos & Disciplinas</span>
+          </a>
+          <a href="#/exercicios" class="nav-item" data-route="/exercicios">
+            <i class="fas fa-dumbbell nav-icon"></i>
+            <span class="nav-text">Banco de Exercícios</span>
+          </a>
+          <a href="#/erros" class="nav-item" data-route="/erros">
+            <i class="fas fa-bug nav-icon"></i>
+            <span class="nav-text">Caderno de Erros</span>
+          </a>
+          <a href="#/simulados" class="nav-item" data-route="/simulados">
+            <i class="fas fa-stopwatch nav-icon"></i>
+            <span class="nav-text">Simulados</span>
+          </a>
+          
+          <div class="nav-section-title">Recursos</div>
+          <a href="#/pomodoro" class="nav-item" data-route="/pomodoro">
+            <i class="fas fa-clock nav-icon"></i>
+            <span class="nav-text">Timer Pomodoro</span>
+          </a>
+          <a href="#/arquivos" class="nav-item" data-route="/arquivos">
+            <i class="fas fa-folder-open nav-icon"></i>
+            <span class="nav-text">Repositório de Arquivos</span>
+          </a>
+        </nav>
+      </div>
+
+      <div class="sidebar-footer">
+        <div class="user-card" id="user-profile-widget">
+          <div class="user-avatar">SS</div>
+          <div class="user-info">
+            <div class="user-name">Sávio Salomão</div>
+            <div class="user-role">Engenharia de Software</div>
+          </div>
+          <button class="icon-btn user-settings" aria-label="Configurações"><i class="fas fa-cog"></i></button>
+        </div>
+      </div>
+    </aside>
+    
+    <div class="main-wrapper">
+      <header class="topbar">
+        <div class="topbar-left">
+          <div class="search-bar" role="search">
+            <i class="fas fa-search search-icon"></i>
+            <input type="text" id="global-search" placeholder="Pressione '/' para buscar conteúdos, listas, ou exercícios..." aria-label="Pesquisa global">
+            <div class="search-shortcut">/</div>
+          </div>
+        </div>
+        
+        <div class="topbar-right">
+          <div class="sync-status" id="sync-indicator">
+            <i class="fas fa-cloud-check sync-icon"></i>
+            <span class="sync-text">Sincronizado</span>
+          </div>
+          <div class="divider"></div>
+          <button class="topbar-btn" aria-label="Notificações">
+            <i class="fas fa-bell"></i>
+            <span class="badge-indicator">3</span>
+          </button>
+          <button class="topbar-btn" id="theme-toggle" aria-label="Alternar tema">
+            <i class="fas fa-moon"></i>
+          </button>
+        </div>
+      </header>
+      
+      <main class="content-area">
+        <div class="breadcrumbs" id="breadcrumbs"></div>
+        <section id="app-root" class="view-container" role="main" aria-live="polite">
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <script type="module" src="app.js"></script>
 </body>
 </html>

@@ -1,0 +1,15 @@
+{
+  "name": "estudos-site",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "prestart": "npm install --no-audit --no-fund",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  },
+  "engines": {
+    "node": ">=22.13"
+  }
+}

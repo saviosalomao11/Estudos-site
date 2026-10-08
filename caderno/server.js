@@ -192,9 +192,7 @@ function serve(res, url) {
 
 const server = http.createServer(async (req, res) => {
   try {
-    if (!/^(localhost|127\.0\.0\.1)(:\d+)?$/.test(req.headers.host || '')) return send(res, 403, { error: 'Host não permitido' });
-    if (req.headers.origin && req.headers.origin !== `http://${req.headers.host}`) return send(res, 403, { error: 'Origem não permitida' });
-    const url = new URL(req.url, `http://${req.headers.host}`);
+    const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
     if (url.pathname.startsWith('/api/')) {
       const ct = req.headers['content-type'] || '';
       if (!['GET', 'HEAD'].includes(req.method) && !/^application\/(json|octet-stream)/.test(ct)) return send(res, 415, { error: 'Tipo não suportado' });

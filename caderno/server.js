@@ -212,11 +212,6 @@ server.on('error', e => {
   console.error(e.code === 'EADDRINUSE' ? `A porta ${port} já está em uso. Feche o outro terminal ou rode com PORT=3001.` : e.message);
   process.exit(1);
 });
-server.listen(port, '127.0.0.1', () => {
-  const link = `http://localhost:${port}`;
-  console.log(`Caderno no ar: ${link}`);
-  if (!process.env.NO_OPEN) {
-    const cmd = process.platform === 'win32' ? `start "" "${link}"` : process.platform === 'darwin' ? `open "${link}"` : `xdg-open "${link}"`;
-    exec(cmd, () => {});
-  }
+server.listen(port, '0.0.0.0', () => {
+  console.log(`Caderno no ar na porta ${port}`);
 });

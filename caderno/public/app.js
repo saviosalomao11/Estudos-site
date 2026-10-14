@@ -59,7 +59,7 @@ const KINDS = ['Conta', 'Conceito', 'Pegadinha', 'Fórmula', 'Interpretação', 
 
 let S;
 let Q = {};
-let OPEN = new Set();
+const REV = new Set();
 let cal = { y: new Date().getFullYear(), m: new Date().getMonth() };
 const T = { sid: 0, t0: 0, acc: 0, on: false, iv: 0 };
 
@@ -110,22 +110,44 @@ const remove = async (t, id) => {
   await reload();
 };
 
+const fmt = t => String(t).replace(/\\\$/g, '\u0001').split(/(\$\$[\s\S]+?\$\$|\$[^$]+?\$)/).map((p, i) => {
+  if (i % 2 === 0) return esc(p).replace(/\u0001/g, '$');
+  const d = p.startsWith('$$');
+  const m = p.slice(d ? 2 : 1, d ? -2 : -1).replace(/\u0001/g, '\\$');
+  try {
+    return window.katex ? katex.renderToString(m, { displayMode: d, throwOnError: false }) : esc(p);
+  } catch {
+    return esc(p);
+  }
+}).join('');
+
 const rich = t => {
   const out = [];
   let ul = false;
+  let code = null;
   String(t || '').split('\n').forEach(l => {
+    if (l.startsWith('```')) {
+      if (code) {
+        if (ul) out.push('</ul>');
+        ul = false;
+        out.push(`<pre class="code"><code>${esc(code.join('\n'))}</code></pre>`);
+        code = null;
+      } else code = [];
+      return;
+    }
+    if (code) return code.push(l);
     const li = l.match(/^\s*[•\-]\s+(.*)/);
     const h = l.match(/^\[(.+)\]$/);
     if (li) {
       if (!ul) out.push('<ul>');
       ul = true;
-      out.push(`<li>${esc(li[1])}</li>`);
+      out.push(`<li>${fmt(li[1])}</li>`);
       return;
     }
     if (ul) out.push('</ul>');
     ul = false;
-    if (h) out.push(`<h4>${esc(h[1])}</h4>`);
-    else if (l.trim()) out.push(`<p>${esc(l)}</p>`);
+    if (h) out.push(`<h4>${fmt(h[1])}</h4>`);
+    else if (l.trim()) out.push(l.includes('$$') ? `<div class="p">${fmt(l)}</div>` : `<p>${fmt(l)}</p>`);
   });
   if (ul) out.push('</ul>');
   return out.join('');
@@ -237,17 +259,53 @@ const exRow = (e, showSub) => {
   const b = sub(e.subject_id);
   return `<article class="ex ${e.status}">
     <button class="chk ${e.status}" data-act="cycle" data-id="${e.id}" aria-label="Status: ${ES[e.status]}. Clique para alterar">${e.status === 'done' ? ic('check', 14) : e.status === 'redo' ? '↺' : ''}</button>
-    <div class="t">${esc(e.q)}<span>${esc(e.list)}</span>${showSub ? ` ${chip(b)}` : ''}<div class="muted small" style="font-weight:400">${esc(e.topic)}</div></div>
+    <div class="t"><a href="#/exercicio/${e.id}">${esc(e.q)}</a><span>${esc(e.list)}</span>${showSub ? ` ${chip(b)}` : ''}<div class="muted small" style="font-weight:400">${esc(e.topic)}${e.mine ? ' · respondido' : ''}</div></div>
     <span class="tag ${esc(e.prio)}">${esc(e.prio)}</span>
-    <details data-ex="${e.id}"${OPEN.has(String(e.id)) ? ' open' : ''}><summary class="small">Enunciado e resposta</summary><div class="more">
-      ${e.statement ? `<div class="stmt rich">${rich(e.statement)}</div>` : ''}
-      <div><b>Resposta:</b> ${esc(e.answer || 'Confira no gabarito da lista.')}</div>
-      <div class="row">${e.link ? `<a class="btn sm" href="/arquivos/${esc(e.link)}" target="_blank" rel="noopener">${ic('out', 14)} Abrir a lista em PDF</a>` : ''}
-        <label>Acertei? <select data-t="exercises" data-id="${e.id}" data-k="correct">${opt(['', 'Sim', 'Parcial', 'Não'], e.correct)}</select></label>
-        <input data-t="exercises" data-id="${e.id}" data-k="note" placeholder="Anotação" value="${esc(e.note)}">
-        <button class="btn sm" data-act="edit-exercise" data-id="${e.id}">${ic('edit', 14)} Editar</button></div>
-    </div></details></article>`;
+    <a class="btn sm" href="#/exercicio/${e.id}">Resolver</a></article>`;
 };
+
+const jl = v => {
+  try {
+    const a = JSON.parse(v || '[]');
+    return Array.isArray(a) ? a : [];
+  } catch {
+    return [];
+  }
+};
+
+function pageExercise(r) {
+  const e = S.exercises.find(x => x.id === r.id);
+  if (!e) return empty('Exercício não encontrado', 'Ele pode ter sido excluído.', '<a class="btn" href="#/exercicios">Voltar aos exercícios</a>');
+  const b = sub(e.subject_id);
+  const sibs = S.exercises.filter(x => x.subject_id === e.subject_id && x.list === e.list);
+  const i = sibs.indexOf(e);
+  const nav = (x, l, k) => (x ? `<a class="btn" href="#/exercicio/${x.id}">${k === 'p' ? ic('left', 16) + ' ' : ''}${l}${k === 'n' ? ' ' + ic('right', 16) : ''}</a>` : '<span></span>');
+  const figs = jl(e.figure).map(f => `<img class="fig" src="/fig/${esc(f)}" alt="Figura do enunciado">`).join('');
+  const chs = jl(e.choices);
+  const open = REV.has(e.id);
+  const page = Number(e.page) || 0;
+  return `<a class="back" href="#/materia/${b.id}/exercicios">${ic('left', 16)} Exercícios de ${esc(b.name)}</a>
+  ${head(esc(e.q), `${esc(e.list)} · ${esc(e.topic)} · ${i + 1} de ${sibs.length}`, `<span class="tag ${esc(e.prio)}">${esc(e.prio)}</span><button class="chk ${e.status}" data-act="cycle" data-id="${e.id}" aria-label="Status: ${ES[e.status]}. Clique para alterar">${e.status === 'done' ? ic('check', 14) : e.status === 'redo' ? '↺' : ''}</button>`)}
+  <section class="card blk"><h3>Enunciado</h3>
+    <div class="stmt rich">${rich(e.statement) || '<p class="muted">Sem enunciado. Use Editar para escrever.</p>'}</div>
+    ${figs ? `<div class="figs">${figs}</div>` : ''}
+    ${chs.length ? `<ol class="chs">${chs.map(c => `<li>${fmt(c)}</li>`).join('')}</ol>` : ''}
+    <div class="row" style="margin-top:12px">${e.link ? `<a class="btn sm" href="/arquivos/${esc(e.link)}${page ? `#page=${page}` : ''}" target="_blank" rel="noopener">${ic('out', 14)} Abrir na lista em PDF</a>` : ''}
+      <button class="btn sm" data-act="edit-exercise" data-id="${e.id}">${ic('edit', 14)} Editar</button></div></section>
+  <section class="card blk"><h3>Sua resposta</h3>
+    <textarea class="mine${e.subject_id === 2 ? ' mono' : ''}" rows="8" spellcheck="false" data-t="exercises" data-id="${e.id}" data-k="mine" placeholder="Escreva aqui a sua resolução e a resposta final" aria-label="Sua resposta">${esc(e.mine)}</textarea>
+    <div class="row" style="margin-top:12px"><button class="btn hl" data-act="reveal" data-id="${e.id}">${open ? 'Esconder resposta' : 'Ver resposta correta'}</button></div></section>
+  ${open ? `<section class="card blk answer"><h3>Resposta correta</h3>
+    <div class="rich ansbox">${rich(e.answer) || '<p class="muted">Sem resposta cadastrada.</p>'}</div>
+    ${e.warn ? `<div class="warnbox"><b>Atenção</b><div class="rich">${rich(e.warn)}</div></div>` : ''}
+    ${e.solution ? `<h4 class="solh">Como resolver</h4><div class="rich">${rich(e.solution)}</div>` : ''}
+    <div class="grade"><span>Como foi?</span>
+      <button class="btn sm${e.correct === 'Sim' ? ' on' : ''}" data-act="grade" data-id="${e.id}" data-v="Sim">Acertei</button>
+      <button class="btn sm${e.correct === 'Parcial' ? ' on' : ''}" data-act="grade" data-id="${e.id}" data-v="Parcial">Acertei em parte</button>
+      <button class="btn sm${e.correct === 'Não' ? ' on' : ''}" data-act="grade" data-id="${e.id}" data-v="Não">Errei</button></div>
+    <input data-t="exercises" data-id="${e.id}" data-k="note" placeholder="Anotação sobre este exercício" value="${esc(e.note)}" aria-label="Anotação"></section>` : ''}
+  <div class="pn">${nav(sibs[i - 1], 'Anterior', 'p')}${nav(sibs[i + 1], 'Próximo', 'n')}</div>`;
+}
 
 const exItems = sid => {
   const q = (Q.q || '').toLowerCase();
@@ -395,8 +453,8 @@ const pageForm = () => head('Fórmulas', 'Regras e cuidados para consultar rápi
 const pageNotes = () => head('Avisos', 'Premissas, materiais e pontos de atenção.', `<button class="btn primary sm" data-act="new-note">${ic('plus', 16)} Nota</button>`) +
   (S.notes.length ? `<div class="cards" style="grid-template-columns:1fr">${S.notes.map(n => `<article class="card ecard"><div class="cardhead"><div class="acts"><h3>${esc(n.title)}</h3>${n.subject_id ? chip(sub(n.subject_id)) : ''}</div><button class="icon-btn sm" data-act="del" data-t="notes" data-id="${n.id}" aria-label="Apagar nota">${ic('trash', 16)}</button></div><div class="rich">${rich(n.body)}</div></article>`).join('')}</div>` : empty('Nenhuma nota', 'Guarde aqui avisos e lembretes que não cabem em uma sessão.'));
 
-const PAGES = { inicio: pageHome, calendario: pageCal, exercicios: pageEx, erros: pageErr, formulas: pageForm, avisos: pageNotes, materia: pageSubject, sessao: pageSession };
-const TITLES = { inicio: 'Início', calendario: 'Calendário', exercicios: 'Exercícios', erros: 'Caderno de erros', formulas: 'Fórmulas', avisos: 'Avisos', materia: 'Matéria', sessao: 'Sessão' };
+const PAGES = { inicio: pageHome, calendario: pageCal, exercicios: pageEx, erros: pageErr, formulas: pageForm, avisos: pageNotes, materia: pageSubject, sessao: pageSession, exercicio: pageExercise };
+const TITLES = { inicio: 'Início', calendario: 'Calendário', exercicios: 'Exercícios', erros: 'Caderno de erros', formulas: 'Fórmulas', avisos: 'Avisos', materia: 'Matéria', sessao: 'Sessão', exercicio: 'Exercício' };
 const route = () => {
   const [p, id, tab] = location.hash.slice(2).split('/');
   return { p: PAGES[p] ? p : 'inicio', id: Number(id) || 0, tab };
@@ -404,7 +462,7 @@ const route = () => {
 
 function sidebar() {
   const r = route();
-  const cur = r.p === 'materia' ? r.id : r.p === 'sessao' ? (S.sessions.find(s => s.id === r.id) || {}).subject_id : 0;
+  const cur = r.p === 'materia' ? r.id : r.p === 'sessao' ? (S.sessions.find(s => s.id === r.id) || {}).subject_id : r.p === 'exercicio' ? (S.exercises.find(x => x.id === r.id) || {}).subject_id : 0;
   const nav = [['inicio', 'Início', 'home'], ['calendario', 'Calendário', 'calendar'], ['exercicios', 'Exercícios', 'exercise'], ['erros', 'Caderno de erros', 'alert'], ['formulas', 'Fórmulas', 'formula'], ['avisos', 'Avisos', 'info']];
   $('#side').innerHTML = `<a class="brand" href="#/">${LOGO}<span>Caderno</span></a>
     <nav>${nav.map(([k, l, i]) => `<a class="nav${r.p === k ? ' on' : ''}" href="#/${k === 'inicio' ? '' : k}">${ic(i)}<span>${l}</span></a>`).join('')}</nav>
@@ -610,6 +668,16 @@ const ACT = {
     const s = S.sessions.find(x => x.id === Number(d.id));
     commit('sessions', s.id, { status: s.status === 'done' ? 'todo' : 'done' });
   },
+  reveal: d => {
+    const id = Number(d.id);
+    if (REV.has(id)) REV.delete(id);
+    else REV.add(id);
+    render();
+  },
+  grade: d => {
+    const e = S.exercises.find(x => x.id === Number(d.id));
+    commit('exercises', e.id, { correct: d.v, status: d.v === 'Sim' ? 'done' : 'redo' });
+  },
   cycle: d => {
     const e = S.exercises.find(x => x.id === Number(d.id));
     commit('exercises', e.id, { status: { todo: 'done', done: 'redo', redo: 'todo' }[e.status] });
@@ -700,6 +768,10 @@ document.addEventListener('click', e => {
 document.addEventListener('change', e => {
   const el = e.target;
   if (el.dataset.act === 'flip') return ACT.flip(el.dataset);
+  if (el.dataset.k === 'mine') {
+    S.exercises.find(x => x.id === Number(el.dataset.id)).mine = el.value;
+    return api('PUT', `/api/exercises/${el.dataset.id}`, { mine: el.value }).catch(() => toast('Não foi possível salvar a resposta'));
+  }
   if (el.dataset.t && el.dataset.k && el.dataset.act !== 'set') commit(el.dataset.t, el.dataset.id, { [el.dataset.k]: el.value });
 });
 
@@ -712,13 +784,6 @@ view.addEventListener('input', e => {
   if (e.target.type === 'search') document.querySelectorAll('[data-live]').forEach(n => (n.innerHTML = LIVE[n.dataset.live](Number(n.dataset.sid) || 0)));
   else render();
 });
-
-view.addEventListener('toggle', e => {
-  const id = e.target.dataset?.ex;
-  if (!id) return;
-  if (e.target.open) OPEN.add(id);
-  else OPEN.delete(id);
-}, true);
 
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') $('.overlay')?.remove();

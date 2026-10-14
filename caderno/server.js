@@ -23,6 +23,11 @@ create table if not exists materials (id integer primary key autoincrement, subj
 create table if not exists config (key text primary key, value text);
 `);
 
+const have = db.prepare('pragma table_info(exercises)').all().map(c => c.name);
+['choices', 'figure', 'solution', 'warn', 'page', 'mine', 'old'].forEach(c => {
+  if (!have.includes(c)) db.exec(`alter table exercises add column ${c} text default ''`);
+});
+
 const TABLES = ['subjects', 'exams', 'sessions', 'exercises', 'errors', 'formulas', 'notes', 'materials'];
 const COLS = Object.fromEntries(TABLES.map(t => [t, db.prepare(`pragma table_info(${t})`).all().map(c => c.name).filter(n => n !== 'id')]));
 const val = v => (v === undefined ? null : typeof v === 'object' && v !== null ? JSON.stringify(v) : v);
@@ -57,6 +62,26 @@ if (!db.prepare("select 1 from config where key='seeded'").get()) {
     ['subjects', 'exams', 'sessions', 'exercises', 'formulas', 'notes', 'materials'].forEach(t => seed[t].forEach(r => insert(t, r)));
     Object.entries(seed.config).forEach(([k, v]) => setConfig(k, v));
     setConfig('seeded', 1);
+    setConfig('exv', 2);
+  });
+}
+
+if (!db.prepare("select 1 from config where key='exv'").get()) {
+  tx(() => {
+    const rows = new Map(db.prepare('select * from exercises').all().map(r => [r.id, r]));
+    const used = new Set();
+    seed.exercises.forEach(e => {
+      const o = (e.old || []).map(i => rows.get(i)).filter(r => r && r.list === e.list);
+      o.forEach(r => used.add(r.id));
+      insert('exercises', {
+        ...e,
+        status: o.some(r => r.status === 'done') ? 'done' : o.some(r => r.status === 'redo') ? 'redo' : 'todo',
+        correct: o.map(r => r.correct).find(Boolean) || '',
+        note: o.map(r => r.note).filter(Boolean).join(' · ')
+      });
+    });
+    used.forEach(id => db.prepare('delete from exercises where id=?').run(id));
+    setConfig('exv', 2);
   });
 }
 
@@ -170,7 +195,7 @@ async function api(req, res, url) {
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
-  '.svg': 'image/svg+xml', '.pdf': 'application/pdf', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg'
+  '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.pdf': 'application/pdf', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg'
 };
 
 function serve(res, url) {

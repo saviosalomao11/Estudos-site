@@ -10,8 +10,7 @@
 </p>
 
 <div align="center">
-  <!-- DICA: Grave a tela do seu projeto funcionando, salve como "demo.gif", coloque na mesma pasta e mude o link abaixo para src="demo.gif" -->
-  <img src="arquivos/demo.gif.mp4" alt="Demonstração" width="150"/>
+  <video src="arquivos/demo.gif.mp4" width="800" autoplay loop muted playsinline></video>
 </div>
 
 <br>

@@ -5,7 +5,7 @@
 
 <p align="center">
   <a href="https://git.io/typing-svg">
-    <img src="https://readme-typing-svg.herokuapp.com?font=Fira+Code&weight=500&size=18&pause=1000&color=4285F4&center=true&vCenter=true&width=500&lines=Plataforma+de+estudos+local.;Apenas+Node.js+necessário.;Foco+na+resolução+de+exercícios.;Aprenda+Algoritmos+e+Cálculo!" alt="Typing SVG" />
+    <img src="https://readme-typing-svg.herokuapp.com?font=Fira+Code&weight=500&size=18&pause=1000&color=4285F4&center=true&vCenter=true&width=500&lines=Plataforma+de+estudos+local.;O+Prático+que+funciona.;Foco+na+praticidade+dos+estudos.;Existem+matérias+a+serem+adicionadas+futuramente!" alt="Typing SVG" />
   </a>
 </p>
 

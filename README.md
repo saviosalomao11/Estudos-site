@@ -10,13 +10,13 @@
 </p>
 
 <div align="center">
-  <video src="arquivos/demo.gif.mp4" width="800" autoplay loop muted playsinline></video>
+  <video src="https://github.com/user-attachments/assets/0653d651-54d7-413d-84f6-35b8cee8d8ca" width="600" autoplay loop muted playsinline></video>
 </div>
 
 <br>
 
 ## 🛠️ Tecnologias Utilizadas
 - **Ambiente/Servidor:** Node.js
-- **Linguagens:** JavaScript, CSS
+- **Linguagens:** Python, JavaScript, CSS
 - **Banco de Dados:** SQLite (`caderno.db`) / Arquivos JSON (`db.json`)
 

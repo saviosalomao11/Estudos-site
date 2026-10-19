@@ -11,23 +11,13 @@
 
 <div align="center">
   <!-- DICA: Grave a tela do seu projeto funcionando, salve como "demo.gif", coloque na mesma pasta e mude o link abaixo para src="demo.gif" -->
-  <img src="https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Objects/Desktop%20Computer.png" alt="Demonstração" width="150"/>
+  <img src="arquivos/demo.gif.mp4" alt="Demonstração" width="150"/>
 </div>
 
 <br>
 
 ## 🛠️ Tecnologias Utilizadas
 - **Ambiente/Servidor:** Node.js
-- **Linguagens:** Python, JavaScript, CSS
+- **Linguagens:** JavaScript, CSS
 - **Banco de Dados:** SQLite (`caderno.db`) / Arquivos JSON (`db.json`)
 
-## 📋 Pré-requisitos
-
-Não há necessidade de instalações complexas. A única dependência exigida é o **Node.js 22.13 ou superior** (versão LTS).
-
-## 🚀 Como Executar o Projeto
-
-1. Abra o terminal dentro desta pasta.
-2. Rode o comando abaixo para iniciar:
-   ```bash
-   npm start

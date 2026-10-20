@@ -28,6 +28,9 @@ const have = db.prepare('pragma table_info(exercises)').all().map(c => c.name);
   if (!have.includes(c)) db.exec(`alter table exercises add column ${c} text default ''`);
 });
 
+const haveS = db.prepare('pragma table_info(sessions)').all().map(c => c.name);
+if (!haveS.includes('steps')) db.exec("alter table sessions add column steps text default ''");
+
 const TABLES = ['subjects', 'exams', 'sessions', 'exercises', 'errors', 'formulas', 'notes', 'materials'];
 const COLS = Object.fromEntries(TABLES.map(t => [t, db.prepare(`pragma table_info(${t})`).all().map(c => c.name).filter(n => n !== 'id')]));
 const val = v => (v === undefined ? null : typeof v === 'object' && v !== null ? JSON.stringify(v) : v);
@@ -63,6 +66,10 @@ if (!db.prepare("select 1 from config where key='seeded'").get()) {
     Object.entries(seed.config).forEach(([k, v]) => setConfig(k, v));
     setConfig('seeded', 1);
     setConfig('exv', 2);
+    setConfig('algpy', 1);
+    setConfig('steps', 1);
+    setConfig('plan2', 1);
+    setConfig('steps2', 1);
   });
 }
 
@@ -70,7 +77,7 @@ if (!db.prepare("select 1 from config where key='exv'").get()) {
   tx(() => {
     const rows = new Map(db.prepare('select * from exercises').all().map(r => [r.id, r]));
     const used = new Set();
-    seed.exercises.forEach(e => {
+    seed.exercises.filter(e => e.subject_id === 1).forEach(e => {
       const o = (e.old || []).map(i => rows.get(i)).filter(r => r && r.list === e.list);
       o.forEach(r => used.add(r.id));
       insert('exercises', {
@@ -82,6 +89,62 @@ if (!db.prepare("select 1 from config where key='exv'").get()) {
     });
     used.forEach(id => db.prepare('delete from exercises where id=?').run(id));
     setConfig('exv', 2);
+  });
+}
+
+if (!db.prepare("select 1 from config where key='algpy'").get()) {
+  tx(() => {
+    const b = db.prepare("select id from subjects where name='Algoritmos'").get();
+    if (b) {
+      const up = db.prepare('update sessions set title=?, theory=?, search=?, essentials=? where subject_id=? and date=?');
+      seed.sessions.filter(x => x.subject_id === 2).forEach(x => up.run(x.title, x.theory, x.search, x.essentials, b.id, x.date));
+      db.prepare('update subjects set description=? where id=?').run(seed.subjects[1].description, b.id);
+      db.prepare("update notes set body=? where title='Premissas do plano'").run(seed.notes.find(n => n.title === 'Premissas do plano').body);
+      seed.exercises.filter(e => e.subject_id === 2).forEach(e => insert('exercises', { ...e, subject_id: b.id }));
+    }
+    setConfig('algpy', 1);
+  });
+}
+
+if (!db.prepare("select 1 from config where key='steps'").get()) {
+  tx(() => {
+    const up = db.prepare('update sessions set steps=? where subject_id=? and date=?');
+    seed.sessions.forEach(x => {
+      const b = db.prepare('select id from subjects where name=?').get(seed.subjects[x.subject_id - 1].name);
+      if (b) up.run(x.steps, b.id, x.date);
+    });
+    setConfig('steps', 1);
+  });
+}
+
+if (!db.prepare("select 1 from config where key='plan2'").get()) {
+  tx(() => {
+    const id = n => (db.prepare('select id from subjects where name=?').get(n) || {}).id;
+    const calc = id('Cálculo 1');
+    const alg = id('Algoritmos');
+    if (calc) db.prepare('delete from sessions where subject_id=? and date>=?').run(calc, '2026-10-26');
+    if (alg) db.prepare('delete from sessions where subject_id=? and date=?').run(alg, '2026-11-02');
+    const up = db.prepare('update sessions set title=?, theory=?, search=?, essentials=?, minutes=?, steps=? where subject_id=? and date=?');
+    seed.sessions.forEach(x => {
+      const sid = id(seed.subjects[x.subject_id - 1].name);
+      if (!sid) return;
+      if (db.prepare('select 1 from sessions where subject_id=? and date=?').get(sid, x.date)) up.run(x.title, x.theory, x.search, x.essentials, x.minutes, x.steps, sid, x.date);
+      else insert('sessions', { ...x, subject_id: sid });
+    });
+    const nt = seed.notes.find(n => n.title === 'Premissas do plano');
+    db.prepare("update notes set body=? where title='Premissas do plano'").run(nt.body);
+    setConfig('plan2', 1);
+  });
+}
+
+if (!db.prepare("select 1 from config where key='steps2'").get()) {
+  tx(() => {
+    const up = db.prepare('update sessions set steps=? where subject_id=? and date=?');
+    seed.sessions.forEach(x => {
+      const b = db.prepare('select id from subjects where name=?').get(seed.subjects[x.subject_id - 1].name);
+      if (b) up.run(x.steps, b.id, x.date);
+    });
+    setConfig('steps2', 1);
   });
 }
 
@@ -217,7 +280,9 @@ function serve(res, url) {
 
 const server = http.createServer(async (req, res) => {
   try {
-    const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+    if (!/^(localhost|127\.0\.0\.1)(:\d+)?$/.test(req.headers.host || '')) return send(res, 403, { error: 'Host não permitido' });
+    if (req.headers.origin && req.headers.origin !== `http://${req.headers.host}`) return send(res, 403, { error: 'Origem não permitida' });
+    const url = new URL(req.url, `http://${req.headers.host}`);
     if (url.pathname.startsWith('/api/')) {
       const ct = req.headers['content-type'] || '';
       if (!['GET', 'HEAD'].includes(req.method) && !/^application\/(json|octet-stream)/.test(ct)) return send(res, 415, { error: 'Tipo não suportado' });
@@ -235,6 +300,11 @@ server.on('error', e => {
   console.error(e.code === 'EADDRINUSE' ? `A porta ${port} já está em uso. Feche o outro terminal ou rode com PORT=3001.` : e.message);
   process.exit(1);
 });
-server.listen(port, '0.0.0.0', () => {
-  console.log(`Caderno no ar na porta ${port}`);
+server.listen(port, '127.0.0.1', () => {
+  const link = `http://localhost:${port}`;
+  console.log(`Caderno no ar: ${link}`);
+  if (!process.env.NO_OPEN) {
+    const cmd = process.platform === 'win32' ? `start "" "${link}"` : process.platform === 'darwin' ? `open "${link}"` : `xdg-open "${link}"`;
+    exec(cmd, () => {});
+  }
 });

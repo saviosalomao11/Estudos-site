@@ -16,3 +16,5 @@ No Windows, também dá para abrir dando dois cliques em iniciar.bat.
 Em Exercícios, clique em Resolver numa questão: o enunciado completo aparece com as figuras, você escreve a resposta (salva sozinha) e o botão Ver resposta correta mostra o gabarito, a resolução e um aviso quando o PDF da lista traz erro. Se você já tinha um banco, ele é atualizado na primeira vez que abrir, mantendo status, acertos e anotações.
 
 Algoritmos usa Python: o plano diário e 81 exercícios (todos testados rodando o código) estão no site, no mesmo formato dos de Cálculo.
+
+Cada dia do plano tem a "Ordem do dia": vídeo, depois exercícios, depois o próximo vídeo, e assim por diante. Os links de vídeo abrem no YouTube e os exercícios abrem direto no site. Revisão de conteúdo só no dia anterior a cada prova.

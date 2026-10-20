@@ -399,6 +399,21 @@ const steps = t => `<ol class="steps">${String(t).split('\n').filter(l => l.trim
 const tsec = () => T.acc + (T.on ? Math.floor((Date.now() - T.t0) / 1000) : 0);
 const tfmt = n => `${pad(Math.floor(n / 60))}:${pad(n % 60)}`;
 
+const STL = { video: 'Vídeo', livro: 'Livro', ex: 'Exercícios', rev: 'Revisão' };
+const short = q => q.replace(/Parte (\d) · Questão (\d+)/, 'P$1 · $2').replace(/Seção ([\d.]+) · Exercício (\d+)/, '$1 · $2').replace(/ · Questão /, ' · ').replace(/^Questão /, 'Q');
+
+const roteiro = list => `<ol class="road">${list.map(x => {
+  let body;
+  if (x.k === 'video') body = `<a class="vid" href="${esc(x.u)}" target="_blank" rel="noopener">${ic('play', 14)} ${esc(x.t)}</a>`;
+  else if (x.k === 'ex') {
+    const es = (x.r || []).map(([l, q]) => S.exercises.find(e => e.list === l && e.q === q)).filter(Boolean);
+    const done = es.filter(e => e.status === 'done').length;
+    body = `<b>${esc(x.t || (es[0] ? es[0].list : 'Exercícios'))}</b> <span class="muted small">${done} de ${es.length} feitos</span>
+      <div class="xchips">${es.map(e => `<a class="xchip ${e.status}" href="#/exercicio/${e.id}" title="${esc(e.list)}: ${esc(e.q)}">${esc(short(e.q))}</a>`).join('')}</div>`;
+  } else body = esc(x.t);
+  return `<li class="${x.k}"><span class="tg">${STL[x.k]}</span><div>${body}${x.n ? `<p class="muted small">${esc(x.n)}</p>` : ''}</div></li>`;
+}).join('')}</ol>`;
+
 function pageSession(r) {
   const s = S.sessions.find(x => x.id === r.id);
   if (!s) return empty('Sessão não encontrada', 'Ela pode ter sido excluída.', '<a class="btn" href="#/">Voltar ao início</a>');
@@ -410,16 +425,23 @@ function pageSession(r) {
   } catch {
     terms = [];
   }
+  let road = [];
+  try {
+    road = JSON.parse(s.steps || '[]');
+  } catch {
+    road = [];
+  }
   const nxt = sessOf(s.subject_id).find(x => x.date > s.date || (x.date === s.date && x.id > s.id));
   const mine = T.sid === s.id;
   return `<a class="crumb" href="#/materia/${b.id}">${ic('left', 16)} ${esc(b.name)}</a>
   <div class="sess" style="--c:${b.color}"><div>
     <div class="stitle"><h1>${esc(s.title)}</h1><div class="meta"><span>${WDF[pd(s.date).getDay()]}, ${dd(s.date)}</span><span>${hm(s.minutes)} planejados</span>${chip(b)}</div></div>
-    ${s.theory ? `<section class="card blk"><h3>O que estudar</h3><div class="rich">${rich(s.theory)}</div></section>` : ''}
-    ${terms.length ? `<section class="card blk"><h3>O que pesquisar</h3><div class="links">${terms.map(t => `<a href="https://www.youtube.com/results?search_query=${encodeURIComponent(t)}" target="_blank" rel="noopener">${ic('out', 14)} ${esc(t)}</a>`).join('')}</div></section>` : ''}
-    ${s.plan ? `<section class="card blk"><h3>Roteiro do dia</h3>${steps(s.plan)}</section>` : ''}
-    ${s.essentials || s.extra || s.answers ? `<section class="card blk"><h3>Exercícios</h3>${s.essentials ? `<div class="rich">${rich(s.essentials)}</div>` : ''}${s.extra ? `<h4 style="margin:14px 0 4px;font-family:var(--body)">Reforço</h4><div class="rich muted">${rich(s.extra)}</div>` : ''}${s.answers ? `<details class="ans"><summary>Gabarito e respostas</summary><div class="rich" style="margin-top:10px">${rich(s.answers)}</div></details>` : ''}</section>` : ''}
-    ${exs.length ? `<section class="blk"><h3 style="margin-bottom:10px">Questões das listas neste dia (${exs.length})</h3><div class="exl">${exs.map(e => exRow(e, false)).join('')}</div></section>` : ''}
+    ${road.length ? `<section class="card blk"><h3>Ordem do dia</h3><p class="muted small" style="margin-bottom:10px">Siga de cima para baixo: veja o vídeo, resolva os exercícios indicados e só então passe para o próximo.</p>${roteiro(road)}</section>` : ''}
+    ${s.theory ? `<section class="card blk"><h3>${road.length ? 'Resumo do assunto' : 'O que estudar'}</h3><div class="rich">${rich(s.theory)}</div></section>` : ''}
+    ${terms.length && !road.length ? `<section class="card blk"><h3>O que pesquisar</h3><div class="links">${terms.map(t => `<a href="https://www.youtube.com/results?search_query=${encodeURIComponent(t)}" target="_blank" rel="noopener">${ic('out', 14)} ${esc(t)}</a>`).join('')}</div></section>` : ''}
+    ${s.plan && !road.length ? `<section class="card blk"><h3>Roteiro do dia</h3>${steps(s.plan)}</section>` : ''}
+    ${!road.length && (s.essentials || s.extra || s.answers) ? `<section class="card blk"><h3>Exercícios</h3>${s.essentials && !road.length ? `<div class="rich">${rich(s.essentials)}</div>` : ''}${s.extra ? `<h4 style="margin:14px 0 4px;font-family:var(--body)">Reforço</h4><div class="rich muted">${rich(s.extra)}</div>` : ''}${s.answers ? `<details class="ans"><summary>Gabarito e respostas</summary><div class="rich" style="margin-top:10px">${rich(s.answers)}</div></details>` : ''}</section>` : ''}
+    ${exs.length && !road.length ? `<section class="blk"><h3 style="margin-bottom:10px">Questões das listas neste dia (${exs.length})</h3><div class="exl">${exs.map(e => exRow(e, false)).join('')}</div></section>` : ''}
   </div>
   <aside class="panel">
     <section class="card"><h3 style="margin-bottom:10px">Status</h3><div class="segctl">${Object.entries(SS).map(([k, l]) => `<button class="${s.status === k ? 'on' : ''}" data-act="set" data-t="sessions" data-id="${s.id}" data-k="status" data-v="${k}">${k === 'done' ? ic('check', 16) : k === 'partial' ? ic('clock', 16) : ic('target', 16)} ${l}</button>`).join('')}</div></section>
